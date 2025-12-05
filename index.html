@@ -1,0 +1,1171 @@
+<!DOCTYPE html> 
+<html lang="en"> 
+<head> 
+    <meta charset="UTF-8"> 
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"> 
+    <title>Pastoral Dashboard - SLT Edition (v5.0)</title> 
+    <script src="https://cdn.tailwindcss.com"></script> 
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script> 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script> 
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.29/jspdf.plugin.autotable.min.js"></script> 
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet"> 
+     
+    <style> 
+        :root { --brand: #064e3b; --gold: #d97706; } 
+        body { background-color: #f0fdf4; font-family: 'Segoe UI', system-ui, sans-serif; } 
+        ::-webkit-scrollbar { width: 8px; height: 8px; } 
+        ::-webkit-scrollbar-track { background: #f1f1f1; } 
+        ::-webkit-scrollbar-thumb { background: #064e3b; border-radius: 4px; } 
+         
+        .tag { font-size: 0.7rem; font-weight: 700; padding: 2px 8px; border-radius: 99px; text-transform: uppercase; letter-spacing: 0.05em; display: inline-block; } 
+        .tag-sen { background: #dcfce7; color: #166534; border: 1px solid #86efac; } 
+        .tag-pp { background: #fff7ed; color: #9a3412; border: 1px solid #fdba74; white-space: nowrap; } 
+         
+        .diag-org { background: #fff7ed; color: #c2410c; border-left: 4px solid #f97316; }  
+        .diag-dis { background: #fefce8; color: #a16207; border-left: 4px solid #eab308; }  
+        .diag-def { background: #fef2f2; color: #991b1b; border-left: 4px solid #ef4444; } 
+        .diag-saf { background: #eff6ff; color: #1e40af; border-left: 4px solid #3b82f6; } 
+        .diag-gen { background: #f8fafc; color: #475569; border-left: 4px solid #94a3b8; } 
+         
+        .animate-fade-in { animation: fadeIn 0.4s ease-out forwards; } 
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } } 
+ 
+        /* Print Styles */ 
+        @media print { 
+            @page { margin: 0.5cm; size: A4 portrait; } 
+            body { background: white; height: auto; overflow: visible; } 
+            nav, aside, #action-plan-section, #status-bar-container, button { display: none !important; } 
+            #student-focus { display: block !important; margin: 0; padding: 0; box-shadow: none; border: none; } 
+            #student-focus .bg-emerald-800 { background-color: white !important; color: black !important; border-bottom: 2px solid #000; padding: 0 !important; margin-bottom: 20px; } 
+            #student-focus .text-emerald-300, #student-focus .text-emerald-200 { color: #555 !important; } 
+            #focus-count { color: black !important; } 
+            main { overflow: visible !important; display: block !important; } 
+            section { overflow: visible !important; padding: 0 !important; background: white !important; } 
+            .shadow-xl, .shadow-lg, .shadow-sm { box-shadow: none !important; border: 1px solid #ddd !important; } 
+        } 
+    </style> 
+</head> 
+<body class="text-slate-800 h-screen flex flex-col overflow-hidden"> 
+ 
+    <nav class="bg-emerald-900 text-white shadow-lg z-50 flex-none print:hidden"> 
+        <div class="w-full px-4 h-14 flex items-center justify-between"> 
+            <div class="flex items-center gap-3"> 
+                <div class="bg-yellow-500 text-emerald-900 p-1.5 rounded font-black text-lg tracking-tighter shadow-lg transform rotate-3">PB</div> 
+                <div> 
+                    <h1 class="font-bold text-base tracking-tight leading-tight">Pastoral<span class="text-emerald-300 font-light">Board</span></h1> 
+                    <div class="text-[9px] text-emerald-400 uppercase tracking-widest font-bold">SLT Intelligence Unit</div> 
+                </div> 
+            </div> 
+             
+            <div class="flex items-center gap-4" id="status-bar-container"> 
+                <div id="status-msg" class="text-xs font-mono text-emerald-200 hidden md:block">Waiting for data...</div> 
+                <select id="year-filter" onchange="applyFilters()" class="bg-emerald-800 text-white text-xs border border-emerald-700 rounded px-2 py-1 focus:outline-none focus:border-yellow-500"> 
+                    <option value="All">All Years</option> 
+                </select> 
+                <label class="bg-yellow-500 hover:bg-yellow-400 text-emerald-900 px-3 py-1.5 rounded shadow font-bold text-xs cursor-pointer transition flex items-center gap-2"> 
+                    <i class="fas fa-file-excel"></i> 
+                    <span>Upload Data</span> 
+                    <input type="file" id="file-input" class="hidden" accept=".xlsx, .xls, .csv"> 
+                </label> 
+            </div> 
+        </div> 
+    </nav> 
+ 
+    <main class="flex-1 flex overflow-hidden relative"> 
+        <aside class="w-80 md:w-96 bg-white border-r border-slate-200 flex flex-col shadow-xl z-10 print:hidden"> 
+            <div class="p-3 border-b border-slate-100 bg-slate-50 space-y-2"> 
+                <input type="text" id="search-box" placeholder="Search name, reg..." class="w-full px-3 py-2 rounded border border-slate-300 text-sm focus:ring-2 focus:ring-emerald-500 focus:outline-none shadow-sm" onkeyup="applyFilters()"> 
+                <div class="flex justify-between text-[10px] text-slate-400 uppercase font-bold px-1"> 
+                    <span id="student-count-display">0 Students</span> 
+                    <span class="text-emerald-600 cursor-pointer hover:underline" onclick="resetFilters()">Reset</span> 
+                </div> 
+            </div> 
+             
+            <div class="grid grid-cols-12 gap-1 px-4 py-2 bg-slate-100 text-[10px] font-bold text-slate-500 uppercase border-b border-slate-200"> 
+                <div class="col-span-6 cursor-pointer hover:text-emerald-700" onclick="sortStudents('name')">Name <i class="fas fa-sort ml-1"></i></div> 
+                <div class="col-span-2 cursor-pointer hover:text-emerald-700" onclick="sortStudents('count')">Evt <i class="fas fa-sort ml-1"></i></div> 
+                <div class="col-span-2 cursor-pointer hover:text-emerald-700 text-center" onclick="sortStudents('oncall')">OC <i class="fas fa-sort ml-1"></i></div> 
+                <div class="col-span-2 text-right">Reg</div> 
+            </div> 
+ 
+            <div class="flex-1 overflow-y-auto relative"> 
+                <div id="loading-spinner" class="hidden absolute inset-0 bg-white/80 flex items-center justify-center z-20"> 
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-900"></div> 
+                </div> 
+                <table class="w-full text-left border-collapse"> 
+                    <tbody id="student-table-body" class="divide-y divide-slate-100 text-sm"> 
+                        <tr><td class="p-8 text-center text-slate-400 italic text-xs">Upload an Excel file to begin.<br>Ensure headers include 'Name', 'Year', 'Type'.</td></tr> 
+                    </tbody> 
+                </table> 
+            </div> 
+        </aside> 
+ 
+        <section class="flex-1 overflow-y-auto p-4 md:p-6 bg-slate-50/50 scroll-smooth"> 
+             
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6 print:hidden"> 
+                <div onclick="showTotalIncidentsDetails()" class="bg-white p-4 rounded-xl shadow-sm border border-emerald-100 flex items-center justify-between cursor-pointer hover:bg-emerald-50 transition"> 
+                    <div> 
+                        <div class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Total Incidents</div> 
+                        <div class="text-2xl font-black text-slate-800" id="stat-total-incidents">0</div> 
+                    </div> 
+                    <div class="text-emerald-100 text-3xl"><i class="fas fa-clipboard-list"></i></div> 
+                </div> 
+                <div onclick="showTotalOnCallDetails()" class="bg-white p-4 rounded-xl shadow-sm border border-emerald-100 flex items-center justify-between cursor-pointer hover:bg-emerald-50 transition"> 
+                    <div> 
+                        <div class="text-[10px] text-slate-400 uppercase font-bold tracking-wider">Total On Calls</div> 
+                        <div class="text-2xl font-black text-slate-800" id="stat-total-oncalls">0</div> 
+                    </div> 
+                    <div class="text-red-100 text-2xl text-red-500"><i class="fas fa-exclamation-triangle"></i></div> 
+                </div> 
+                <div onclick="showYearGroupDetails()" class="bg-white p-4 rounded-xl shadow-sm border border-emerald-100 flex items-center justify-between col-span-2 md:col-span-2 cursor-pointer hover:bg-emerald-50 transition"> 
+                    <div class="w-full"> 
+                        <div class="text-[10px] text-slate-400 uppercase font-bold tracking-wider mb-1">Most Impacted Year Group</div> 
+                        <div class="flex justify-between items-end"> 
+                            <div class="text-xl font-black text-slate-800" id="stat-top-year">--</div> 
+                            <div class="text-xs text-slate-500" id="stat-top-year-count">0 evts</div> 
+                        </div> 
+                        <div class="w-full bg-slate-100 h-1.5 rounded-full mt-2 overflow-hidden"> 
+                            <div class="bg-yellow-500 h-full" style="width: 0%" id="stat-year-bar"></div> 
+                        </div> 
+                    </div> 
+                </div> 
+            </div> 
+ 
+            <div class="mb-8 hidden print:hidden" id="action-plan-section"> 
+                <div class="flex items-center justify-between mb-3"> 
+                    <h3 class="font-bold text-slate-700 text-sm uppercase tracking-wide"><i class="fas fa-fire text-orange-500 mr-2"></i>Duty Hotspots (Last 5 Active Days)</h3> 
+                </div> 
+                <div class="bg-white p-4 rounded-xl shadow-lg border border-slate-100 overflow-x-auto"> 
+                    <div class="min-w-[500px] grid grid-cols-6 gap-2" id="heatmap-grid"></div> 
+                </div> 
+            </div> 
+ 
+            <section id="reporting-tools" class="bg-emerald-900 rounded-xl shadow-xl p-6 text-white animate-fade-in hidden relative overflow-hidden mb-8 print:hidden"> 
+                <div id="locked-overlay" class="absolute inset-0 z-10 bg-emerald-900 bg-opacity-95 flex flex-col items-center justify-center p-6 text-center"> 
+                    <h3 class="text-xl font-bold text-white mb-2">Restricted Access</h3> 
+                    <p class="text-sm text-emerald-200 mb-4">This section contains sensitive reporting tools for SLT/Pastoral Leads only.</p> 
+                    <div class="flex gap-2"> 
+                        <input type="password" id="password-input" placeholder="Enter Access Code" class="text-emerald-900 px-3 py-2 rounded text-sm font-bold w-48 focus:outline-none focus:ring-2 focus:ring-yellow-400"> 
+                        <button onclick="unlockReports()" class="bg-yellow-500 hover:bg-yellow-600 text-emerald-900 font-bold px-4 py-2 rounded text-sm transition">Unlock</button> 
+                    </div> 
+                    <p id="password-error" class="text-red-400 text-xs mt-2 hidden">Incorrect access code.</p> 
+                </div> 
+ 
+                <div class="flex flex-col md:flex-row justify-between items-center gap-4 blur-sm transition-all duration-500" id="action-content"> 
+                    <div> 
+                        <h2 class="text-xl font-bold flex items-center gap-2"> 
+                            <i class="fas fa-tools text-yellow-400"></i> 
+                            Reporting & Action Tools 
+                        </h2> 
+                        <p class="text-sm text-emerald-200 mt-1">Generate targeted reports for staff, SLT, and tracking.</p> 
+                    </div> 
+                    <div class="flex gap-2 flex-wrap"> 
+                        <button onclick="generateWeeklyBulletin()" class="bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold py-3 px-4 rounded shadow transition flex items-center gap-2 border border-emerald-500">Weekly Bulletin</button> 
+                        <button onclick="generateSLTReport()" class="bg-purple-700 hover:bg-purple-600 text-white text-xs font-bold py-3 px-4 rounded shadow transition flex items-center gap-2 border border-purple-500">SLT Strategic Report</button> 
+                        <button onclick="generateActionPDF()" class="bg-yellow-500 hover:bg-yellow-600 text-emerald-900 text-xs font-bold py-3 px-4 rounded shadow transition flex items-center gap-2">Form Actions PDF</button> 
+                        <button onclick="generateStickerSheet()" class="bg-orange-600 hover:bg-orange-500 text-white text-xs font-bold py-3 px-4 rounded shadow transition flex items-center gap-2 border border-orange-400">Generate Sticker Sheet</button> 
+                    </div> 
+                </div> 
+            </section> 
+ 
+            <div id="student-focus" class="hidden animate-fade-in mb-12"> 
+                <div class="bg-white rounded-xl shadow-xl border border-emerald-100 overflow-hidden"> 
+                    <div class="bg-emerald-800 text-white p-6 flex flex-col md:flex-row justify-between items-start md:items-center border-b-4 border-yellow-500 gap-4"> 
+                        <div> 
+                            <div class="flex items-center gap-3 mb-2"> 
+                                <h2 class="text-3xl font-bold leading-none" id="focus-name">Student Name</h2> 
+                                <span class="bg-emerald-900 text-yellow-400 text-xs px-2 py-1 rounded font-mono border border-emerald-600 shadow-inner" id="focus-reg">FORM</span> 
+                            </div> 
+                            <div class="flex flex-wrap gap-2" id="focus-badges"></div> 
+                        </div> 
+                        <div class="flex items-center gap-4"> 
+                            <div class="text-right block print:block"> 
+                                <div class="text-4xl font-bold text-white tracking-tighter leading-none" id="focus-count">0</div> 
+                                <div class="text-[10px] text-emerald-200 font-bold uppercase tracking-widest mt-1">Total Events</div> 
+                            </div> 
+                            <div class="flex gap-2"> 
+                                <button onclick="window.print()" class="text-emerald-300 hover:text-white p-2 print:hidden" title="Quick Print"> 
+                                    <i class="fas fa-print fa-lg"></i> 
+                                </button> 
+                                <button onclick="document.getElementById('student-focus').classList.add('hidden')" class="text-emerald-300 hover:text-white p-2 print:hidden" title="Close"> 
+                                    <i class="fas fa-times fa-lg"></i> 
+                                </button> 
+                            </div> 
+                        </div> 
+                    </div> 
+ 
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-0"> 
+                        <div class="lg:col-span-4 p-6 border-r border-slate-200 bg-slate-50 print:bg-white print:border-r-0 print:border-b"> 
+                            <h3 class="font-bold text-emerald-900 mb-4 border-b border-slate-200 pb-2 uppercase text-xs tracking-wider">Data Profile</h3> 
+                            <div class="space-y-4 text-sm mb-6"> 
+                                <div class="flex justify-between items-center bg-white p-3 rounded border border-slate-200 shadow-sm print:shadow-none"> 
+                                    <span class="text-slate-500 font-medium text-xs uppercase">Primary Pattern</span> 
+                                    <span class="font-bold px-2 py-1 rounded text-xs uppercase" id="focus-diagnosis">--</span> 
+                                </div> 
+                                <div class="flex justify-between items-center bg-white p-3 rounded border border-slate-200 shadow-sm print:shadow-none"> 
+                                    <span class="text-slate-500 font-medium text-xs uppercase">Main Concern Subject</span> 
+                                    <span class="font-bold text-red-600 text-right" id="focus-dept">--</span> 
+                                </div> 
+                                <div class="grid grid-cols-2 gap-3"> 
+                                    <div class="bg-white p-3 rounded border border-slate-200 text-center"> 
+                                        <div class="text-slate-400 text-[10px] uppercase font-bold mb-1">Reading Age</div> 
+                                        <div class="font-bold text-lg text-slate-800" id="focus-ra">--</div> 
+                                    </div> 
+                                    <div class="bg-white p-3 rounded border border-slate-200 text-center"> 
+                                        <div class="text-slate-400 text-[10px] uppercase font-bold mb-1">Attainment</div> 
+                                        <div class="font-bold text-lg text-slate-800" id="focus-pa">--</div> 
+                                    </div> 
+                                </div> 
+                                 
+                                <div class="bg-white p-3 rounded border border-slate-200 shadow-sm print:shadow-none"> 
+                                    <div class="flex justify-between items-center mb-1"> 
+                                        <div class="text-slate-400 text-[10px] uppercase font-bold">Attendance</div> 
+                                        <div class="font-bold text-lg" id="focus-att-pct">--%</div> 
+                                    </div> 
+                                    <div class="w-full bg-slate-100 h-2 rounded-full overflow-hidden"> 
+                                        <div class="bg-emerald-500 h-full" style="width: 0%" id="focus-att-bar"></div> 
+                                    </div> 
+                                </div> 
+ 
+                                <div class="bg-white p-3 rounded border border-slate-200"> 
+                                    <div class="text-slate-400 text-[10px] uppercase font-bold mb-2">Monitoring Forms (Click to View)</div> 
+                                    <div class="flex items-center justify-around py-1"> 
+                                        <div class="text-center cursor-pointer hover:bg-slate-50 p-1 rounded" onclick="showMonitoringHistory('Green')"> 
+                                            <div class="text-3xl font-black text-emerald-600 leading-none" id="focus-mon-green">0</div> 
+                                            <div class="text-[9px] font-bold text-emerald-800 uppercase">Green</div> 
+                                        </div> 
+                                        <div class="w-px h-8 bg-slate-200"></div> 
+                                        <div class="text-center cursor-pointer hover:bg-slate-50 p-1 rounded" onclick="showMonitoringHistory('Red')"> 
+                                            <div class="text-3xl font-black text-red-600 leading-none" id="focus-mon-red">0</div> 
+                                            <div class="text-[9px] font-bold text-red-800 uppercase">Red</div> 
+                                        </div> 
+                                    </div> 
+                                </div> 
+                            </div> 
+                        </div> 
+ 
+                        <div class="lg:col-span-8 p-6"> 
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6"> 
+                                <div> 
+                                    <h3 class="font-bold text-emerald-900 mb-2 uppercase text-xs tracking-wider">Suggested Strategies</h3> 
+                                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm h-full print:border-slate-400"> 
+                                        <ul class="space-y-2 text-sm" id="strategy-list"></ul> 
+                                    </div> 
+                                </div> 
+                                <div> 
+                                    <h3 class="font-bold text-emerald-900 mb-2 uppercase text-xs tracking-wider">Recent Logs</h3> 
+                                    <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm h-full text-xs text-slate-600 overflow-y-auto max-h-48 print:max-h-none print:border-slate-400" id="comment-analysis"> 
+                                        Loading... 
+                                    </div> 
+                                </div> 
+                            </div> 
+                             
+                            <div> 
+                                <h3 class="font-bold text-emerald-900 mb-4 uppercase text-xs tracking-wider">Incident Trend (Academic Year)</h3> 
+                                <div class="bg-white p-4 rounded-xl border border-slate-200 shadow-sm h-56 print:border-slate-400"> 
+                                    <canvas id="student-chart"></canvas> 
+                                </div> 
+                            </div> 
+                        </div> 
+                    </div> 
+                </div> 
+            </div> 
+        </section> 
+    </main> 
+ 
+    <div id="detail-modal" class="fixed inset-0 bg-black/50 z-[60] hidden flex items-center justify-center backdrop-blur-sm print:hidden"> 
+        <div class="bg-white rounded-xl shadow-2xl w-full max-w-lg m-4 overflow-hidden flex flex-col max-h-[80vh]"> 
+            <div class="bg-emerald-900 text-white p-4 flex justify-between items-center flex-none"> 
+                <div> 
+                    <h3 class="font-bold text-base" id="modal-title">Details</h3> 
+                </div> 
+                <button onclick="document.getElementById('detail-modal').classList.add('hidden')" class="text-emerald-300 hover:text-white"><i class="fas fa-times"></i></button> 
+            </div> 
+            <div class="p-0 overflow-auto flex-1 bg-slate-50" id="modal-content-container"></div> 
+        </div> 
+    </div> 
+ 
+    <script> 
+        // --- GLOBAL STATE --- 
+        let studentData = {}; 
+        let heatmapData = {}; 
+        let heatmapDrilldown = {};  
+        let currentSort = { key: 'count', dir: 'desc' }; 
+        
+        const INTERVENTION_STRATEGIES = {
+            "disruption": {
+                strategy: "Non-Verbal Intervention & Positive Narration",
+                action: "Make eye contact; use a 'shh' gesture or tap the desk lightly while continuing to teach.",
+                script: "I'm looking for 100% focus. Thank you, [Name], for tracking the speaker."
+            },
+            "refusal": {
+                strategy: "Help Start & Directed Choice",
+                action: "Lower the barrier to starting. Walk away immediately to give 'take-up time'.",
+                script: "I notice we haven't started yet. Do you need a hand with the first sentence, or would you like to start on question 2?"
+            },
+            "defiance": {
+                strategy: "Partial Agreement & Deferral",
+                action: "Avoid the power struggle. Validating feelings does not mean validating behaviour. Use a low, calm tone and move away.",
+                script: "I hear that you're frustrated/bored, but this work needs to be done. Let's get the first two lines done, and I'll come back in 5 minutes to check."
+            },
+            "rudeness": {
+                strategy: "Depersonalise & Rule Reminder",
+                action: "Refer to the school norm, not your personal authority. Do not argue back. Pivot back to the lesson immediately.",
+                script: "We speak respectfully in this classroom. I'm going to give you a moment to think about that, and we can try again in a minute."
+            },
+            "backchat": {
+                strategy: "Depersonalise & Rule Reminder",
+                action: "Refer to the school norm, not your personal authority. Do not argue back. Pivot back to the lesson immediately.",
+                script: "We speak respectfully in this classroom. I'm going to give you a moment to think about that, and we can try again in a minute."
+            },
+            "secondary": {
+                strategy: "Tactical Ignoring",
+                action: "Focus on the primary compliance. If they pick up the pen but roll their eyes, ignore the eye roll.",
+                script: "Thanks for starting."
+            },
+            "escalation": {
+                strategy: "Safety First & De-escalation Script",
+                action: "Remove the audience, not the child (if possible).",
+                script: "I can see you are really upset. I want to help you, but I can't do that while you are shouting. Take two minutes in the calm corner/outside, and we will fix this together."
+            },
+            "dysregulation": {
+                strategy: "Safety First & De-escalation Script",
+                action: "Remove the audience, not the child (if possible).",
+                script: "I can see you are really upset. I want to help you, but I can't do that while you are shouting. Take two minutes in the calm corner/outside, and we will fix this together."
+            },
+            "repeated": {
+                strategy: "Restorative Consequence",
+                action: "Sanction with a view to repair.",
+                script: "You have chosen to [action] which means [consequence]. I need you to stay for 2 minutes at break so we can set up a better lesson for tomorrow."
+            }
+        };
+
+        function getStrategyForType(type) {
+            if (!type) return INTERVENTION_STRATEGIES["repeated"];
+            type = type.toLowerCase();
+            if (type.includes("disrupt") || type.includes("chat") || type.includes("talk")) return INTERVENTION_STRATEGIES["disruption"];
+            if (type.includes("refus") || type.includes("slow") || type.includes("start")) return INTERVENTION_STRATEGIES["refusal"];
+            if (type.includes("defian") || type.includes("no") || type.includes("won't")) return INTERVENTION_STRATEGIES["defiance"];
+            if (type.includes("rude") || type.includes("backchat") || type.includes("swear") || type.includes("abus")) return INTERVENTION_STRATEGIES["rudeness"];
+            if (type.includes("secondary") || type.includes("roll") || type.includes("tut")) return INTERVENTION_STRATEGIES["secondary"];
+            if (type.includes("escalat") || type.includes("shout") || type.includes("aggress") || type.includes("viol")) return INTERVENTION_STRATEGIES["escalation"];
+            return INTERVENTION_STRATEGIES["repeated"];
+        }
+        let activeChart = null; 
+        let currentProfileId = null;  
+        let recentActiveDates = []; // Stores recent dates for reporting 
+ 
+        // --- PASSWORD PROTECTION --- 
+        function unlockReports() { 
+            const pass = document.getElementById('password-input').value; 
+            const overlay = document.getElementById('locked-overlay'); 
+            const content = document.getElementById('action-content'); 
+            const error = document.getElementById('password-error'); 
+            if (pass === "C7j77emc") {  
+                overlay.classList.add('hidden'); 
+                content.classList.remove('blur-sm'); 
+                error.classList.add('hidden'); 
+            } else { 
+                error.classList.remove('hidden'); 
+            } 
+        } 
+ 
+        // --- DOM ELEMENTS --- 
+        const els = { 
+            fileInput: document.getElementById('file-input'), 
+            statusMsg: document.getElementById('status-msg'), 
+            yearFilter: document.getElementById('year-filter'), 
+            searchBox: document.getElementById('search-box'), 
+            tableBody: document.getElementById('student-table-body'), 
+            studentCount: document.getElementById('student-count-display'), 
+            loading: document.getElementById('loading-spinner') 
+        }; 
+ 
+        // --- EVENT LISTENERS --- 
+        els.fileInput.addEventListener('change', handleFileUpload); 
+ 
+        // --- HELPER: FIND HEADER ROW --- 
+        function findHeaderRow(sheet) { 
+            const range = XLSX.utils.decode_range(sheet['!ref']); 
+            const maxRow = Math.min(range.e.r, 20);  
+             
+            for (let R = range.s.r; R <= maxRow; ++R) { 
+                let rowValues = []; 
+                for (let C = range.s.c; C <= range.e.c; ++C) { 
+                    const cell = sheet[XLSX.utils.encode_cell({r:R, c:C})]; 
+                    if (cell && cell.v) rowValues.push(String(cell.v).toLowerCase()); 
+                } 
+                const rowStr = rowValues.join(" "); 
+                if (rowStr.includes("pupil name") || rowStr.includes("forename") || rowStr.includes("monitoring forms") || rowStr.includes("% att") || rowStr.includes("sen status code")) { 
+                    return R; 
+                } 
+            } 
+            return 0; 
+        } 
+ 
+        // --- LOGIC: File Processing --- 
+        async function handleFileUpload(e) { 
+            const file = e.target.files[0]; 
+            if(!file) return; 
+ 
+            els.statusMsg.innerText = `Reading ${file.name}...`; 
+            els.loading.classList.remove('hidden'); 
+ 
+            setTimeout(async () => { 
+                try { 
+                    const data = await file.arrayBuffer(); 
+                    const workbook = XLSX.read(data); 
+                     
+                    let incidents = []; 
+                    let monitoring = []; 
+                    let attendance = null; 
+                    let senData = [];  
+ 
+                    workbook.SheetNames.forEach(name => { 
+                        const sheet = workbook.Sheets[name]; 
+                        const lowerName = name.toLowerCase(); 
+                         
+                        if (lowerName.includes("attendance")) { 
+                            attendance = XLSX.utils.sheet_to_json(sheet, { header: 1, defval: "" }); 
+                        }  
+                        else { 
+                            const headerRow = findHeaderRow(sheet); 
+                            const json = XLSX.utils.sheet_to_json(sheet, { range: headerRow, defval: "" }); 
+                             
+                            if (json.length === 0) return; 
+                            const keys = Object.keys(json[0]).map(k => k.toLowerCase()).join(" "); 
+ 
+                            if (lowerName.includes("sen")) { 
+                                senData = json; 
+                            } 
+                            else if (lowerName.includes("monitor") || keys.includes("red or green") || keys.includes("form type")) { 
+                                monitoring = json; 
+                            } else { 
+                                if (incidents.length === 0) incidents = json; 
+                            } 
+                        } 
+                    }); 
+ 
+                    if(incidents.length === 0 && workbook.SheetNames.length > 0) { 
+                        incidents = XLSX.utils.sheet_to_json(workbook.Sheets[workbook.SheetNames[0]]); 
+                    } 
+ 
+                    processData(incidents, monitoring, attendance, senData); 
+                    els.statusMsg.innerText = `Loaded ${Object.keys(studentData).length} students`; 
+                    els.loading.classList.add('hidden'); 
+                    document.getElementById('reporting-tools').classList.remove('hidden'); // Show Reporting Section 
+                } catch (err) { 
+                    console.error(err); 
+                    els.statusMsg.innerText = "Error parsing file."; 
+                    els.loading.classList.add('hidden'); 
+                    alert("Error: Could not parse Excel file. Ensure headers are present."); 
+                } 
+            }, 100); 
+        } 
+ 
+        // --- DATA HELPERS --- 
+        function getVal(row, possibleKeys) { 
+            for (let k of possibleKeys) { 
+                if (row[k] !== undefined && row[k] !== "") return row[k]; 
+                const found = Object.keys(row).find(rk => rk.toLowerCase().trim() === k.toLowerCase()); 
+                if (found && row[found] !== "") return row[found]; 
+            } 
+            return ""; 
+        } 
+ 
+        function formatReadingAge(val) { 
+            if (!val) return "--"; 
+            const s = String(val).trim(); 
+            if (s.includes(":")) { 
+                const parts = s.split(":"); 
+                if(parts.length >= 2) { 
+                    const y = parseInt(parts[0], 10); 
+                    const m = parseInt(parts[1], 10); 
+                    return `${y}y ${m < 10 ? '0'+m : m}m`; 
+                } 
+            } 
+            const num = parseFloat(s); 
+            if (!isNaN(num)) { 
+                if (num < 1.0 && num > 0) { 
+                    const totalHours = num * 24; 
+                    const years = Math.floor(totalHours); 
+                    const months = Math.round((totalHours - years) * 60); 
+                    return `${years}y ${months < 10 ? '0'+months : months}m`; 
+                } 
+                if (s.includes(".")) return s;  
+            } 
+            return s; 
+        } 
+ 
+        function parseDate(val) { 
+            if(!val) return null; 
+            if(val instanceof Date) return val; 
+            if(!isNaN(val) && val > 30000) { 
+                return new Date(Math.round((val - 25569)*86400*1000)); 
+            } 
+            const d = new Date(val); 
+            if(!isNaN(d.getTime())) return d; 
+             
+            if(typeof val === 'string') { 
+                if (val.includes('.') || val.includes('/')) { 
+                    const norm = val.replace(/\./g, '/'); 
+                    const parts = norm.split('/'); 
+                    if(parts.length >= 3) { 
+                        let y = parts[2]; 
+                        if (y.length === 3 && y.startsWith('25')) y = '2025';  
+                        if (y.length === 4 && y.startsWith('25')) y = '2025';  
+                        if (y.length === 2) y = '20' + y; 
+                        return new Date(y, parts[1]-1, parts[0]); 
+                    } 
+                } 
+            } 
+            return null; 
+        } 
+ 
+        function initStudent(name) { 
+             if (!studentData[name]) { 
+                studentData[name] = { 
+                    name: name,  
+                    year: "??",  
+                    reg: "??",  
+                    isSEN: false, senStatus: "", senType: "", isPP: false, ra: "--", pa: "--", 
+                    count: 0, onCallCount: 0, 
+                    incidents: [], types: {}, subjects: {}, 
+                    monitoring: [], attendancePct: null 
+                }; 
+            } 
+            return studentData[name]; 
+        } 
+ 
+        // --- MAIN PROCESSING --- 
+        function processData(incidents, monitoring, attendance, senData) { 
+            studentData = {}; 
+            heatmapData = { 1:{}, 2:{}, 3:{}, 4:{}, 5:{} }; 
+            heatmapDrilldown = { 1:{}, 2:{}, 3:{}, 4:{}, 5:{} }; 
+            let totalIncidents = 0; 
+            let totalOnCalls = 0; 
+            let yearCounts = {}; 
+            let yearsSet = new Set(); 
+            let allValidDates = new Set(); 
+ 
+            incidents.forEach(row => { 
+                let fname = getVal(row, ["firstName", "forename", "first name"]); 
+                let lname = getVal(row, ["lastName", "surname", "last name"]); 
+                let name = (fname && lname) ? `${fname} ${lname}` : getVal(row, ["student name", "name", "pupil name", "student", "pupil"]); 
+                 
+                if(!name || name.length < 2) return; 
+                name = name.trim(); 
+ 
+                let student = initStudent(name); 
+ 
+                let year = String(getVal(row, ["studentYearGroup", "year", "year group", "nc year"]) || student.year).replace(/Year\s*/i, '').trim(); 
+                if(year !== "??") { student.year = year; yearsSet.add(year); } 
+                 
+                let reg = getVal(row, ["tutorGroupName", "form", "reg", "tutor"]) || student.reg; 
+                if(reg !== "??") student.reg = reg; 
+ 
+                let senStatus = getVal(row, ["senStatus", "sen", "sencode"]); 
+                if(senStatus && !student.isSEN) {  
+                    student.isSEN = (!['n','no'].includes(String(senStatus).toLowerCase())); 
+                    student.senStatus = senStatus; 
+                } 
+                 
+                let ppVal = getVal(row, ["pp", "pupil premium", "pupil premium indicator"]); 
+                if(ppVal) student.isPP = (String(ppVal).toLowerCase().includes('t') || ppVal === "Yes"); 
+                 
+                let raRaw = getVal(row, ["readingAge", "ra", "reading age"]); 
+                if(raRaw) student.ra = formatReadingAge(raRaw); 
+                 
+                let pa = getVal(row, ["attainment", "grade", "prior", "prior attainment (ks2)"]); 
+                if(pa) student.pa = pa; 
+ 
+                let type = getVal(row, ["eventType", "reason", "code", "category", "incident type", "event"]) || "Behavior"; 
+                let subj = getVal(row, ["subject", "subjectName", "dept"]) || "General"; 
+                let staff = getVal(row, ["staff", "teacher", "reportedBy", "issuedBy", "by", "from"]) || "Unknown";
+                let dateObj = parseDate(getVal(row, ["date", "incidentDate", "created", "when", "event date"])) || parseDate(getVal(row, ["createdDate", "whenDate"])); 
+                let notes = getVal(row, ["comments", "notes", "details", "narrative", "description", "action", "schoolNotes", "homeNotes"]); 
+ 
+                if(dateObj) allValidDates.add(dateObj.getTime()); 
+ 
+                student.count++; 
+                totalIncidents++; 
+                
+                let period = null; 
+                let periodVal = getVal(row, ["period", "lesson", "whenTime"]); 
+                if (periodVal) { 
+                    const pStr = String(periodVal).toLowerCase(); 
+                    if (pStr.includes("1") || pStr.startsWith("09")) period = 1; 
+                    else if (pStr.includes("2") || pStr.startsWith("10") || pStr.startsWith("11")) period = 2; 
+                    else if (pStr.includes("3") || pStr.startsWith("12") || pStr.startsWith("13")) period = 3; 
+                    else if (pStr.includes("4") || pStr.startsWith("14")) period = 4; 
+                    else if (pStr.includes("5") || pStr.startsWith("15")) period = 5; 
+                }
+
+                student.incidents.push({ date: dateObj, type, subj, staff, notes, period }); 
+                student.types[type] = (student.types[type] || 0) + 1; 
+                student.subjects[subj] = (student.subjects[subj] || 0) + 1; 
+                 
+                const isRedFlag = type.match(/call|remove|park|red|exclusion|suspen/i); 
+                if (isRedFlag) { 
+                    student.onCallCount++; 
+                    totalOnCalls++; 
+                    yearCounts[year] = (yearCounts[year] || 0) + 1; 
+                } 
+            }); 
+ 
+            const sortedDates = Array.from(allValidDates).sort((a,b)=>b-a);
+            recentActiveDates = sortedDates.slice(0,5);
+
+            // --- HEATMAP & HOTSPOTS LOGIC (Last 30 Days) ---
+            const maxDate = sortedDates.length > 0 ? sortedDates[0] : new Date().getTime();
+            const thirtyDaysAgo = maxDate - (30 * 24 * 60 * 60 * 1000);
+            let totalRecentOnCalls = 0;
+            
+            Object.values(studentData).forEach(s => {
+                s.incidents.forEach(i => {
+                    if (i.date && i.date.getTime() >= thirtyDaysAgo) {
+                        const isRedFlag = i.type.match(/call|remove|park|red|exclusion|suspen/i);
+                        if (isRedFlag) {
+                            totalRecentOnCalls++;
+                            let day = i.date.getDay();
+                            let period = i.period;
+                            
+                            if (period && day >= 1 && day <= 5) {
+                                if (!heatmapData[period][day]) heatmapData[period][day] = 0;
+                                heatmapData[period][day]++;
+                                if (!heatmapDrilldown[period][day]) heatmapDrilldown[period][day] = {};
+                                const key = `${s.name} (${i.subj})`;
+                                heatmapDrilldown[period][day][key] = (heatmapDrilldown[period][day][key] || 0) + 1;
+                            }
+                        }
+                    }
+                });
+            });
+
+            const avgOnCalls = (totalRecentOnCalls / 30).toFixed(1);
+            const hotspotsHeader = document.querySelector('#action-plan-section h3');
+            if(hotspotsHeader) hotspotsHeader.innerHTML = `<i class="fas fa-fire text-orange-500 mr-2"></i>Duty Hotspots (Avg ${avgOnCalls} On-Calls/Day - Last 30 Days)`;
+ 
+            if (senData && senData.length > 0) { 
+                senData.forEach(row => { 
+                    const name = getVal(row, ["Name", "Student Name", "Pupil Name"]); 
+                    if (!name) return; 
+                    let student = studentData[name] || findStudentFuzzy(name); 
+                    if (!student) student = initStudent(name.trim()); 
+                    const status = getVal(row, ["SEN Status Code", "Status Code", "Status"]); 
+                    const type = getVal(row, ["UPDATED PRIMARY NEED SEN CODE", "Primary Need", "Primary Need SEN Code"]); 
+                    if (status) { 
+                        student.isSEN = !['n', 'no', '', ' '].includes(String(status).toLowerCase().trim()); 
+                        student.senStatus = status; 
+                    } 
+                    if (type) student.senType = type; 
+                }); 
+            } 
+ 
+            if (Array.isArray(attendance) && attendance.length > 0 && Array.isArray(attendance[0])) { 
+                let nameColIdx = 0; 
+                let headerRowIdx = -1; 
+                for(let r=0; r<Math.min(attendance.length, 20); r++) { 
+                    const row = attendance[r]; 
+                    for(let c=0; c<row.length; c++) { 
+                        if(String(row[c]).trim().toUpperCase().includes("NAME")) { 
+                            headerRowIdx = r; 
+                            nameColIdx = c; 
+                            break; 
+                        } 
+                    } 
+                    if(headerRowIdx !== -1) break; 
+                } 
+                if (headerRowIdx !== -1) { 
+                    const dateRow = attendance[headerRowIdx - 1]; 
+                    const dateMap = []; 
+                    if (dateRow) { 
+                        for(let c=0; c<dateRow.length; c++) { 
+                            const val = dateRow[c]; 
+                            if (val) { 
+                                const d = parseDate(val); 
+                                if (d && d.getFullYear() > 2020) dateMap.push({ col: c, date: d }); 
+                            } 
+                        } 
+                        dateMap.sort((a,b) => b.date - a.date); 
+                    } 
+                    for(let r=headerRowIdx+1; r<attendance.length; r++) { 
+                        const row = attendance[r]; 
+                        const name = row[nameColIdx]; 
+                        if(!name || typeof name !== 'string') continue; 
+                        let student = studentData[name] || findStudentFuzzy(name); 
+                        if(!student) student = initStudent(name.trim()); 
+                        for(const item of dateMap) { 
+                            const val = row[item.col]; 
+                            if(val !== undefined && val !== "" && !isNaN(parseFloat(val))) { 
+                                student.attendancePct = parseFloat(val).toFixed(1); 
+                                break;  
+                            } 
+                        } 
+                    } 
+                } 
+            } else if (Array.isArray(attendance)) { 
+                attendance.forEach(row => { 
+                    let name = getVal(row, ["name", "pupil name", "student"]); 
+                    if(!name) return; 
+                    let student = studentData[name] || findStudentFuzzy(name); 
+                    if(!student) student = initStudent(name.trim()); 
+                    const keys = Object.keys(row); 
+                    let lastPct = null; 
+                    const dateKeys = keys.filter(k => k.match(/\d+\.\d+/)); 
+                    for (let i = dateKeys.length - 1; i >= 0; i--) { 
+                        let val = row[dateKeys[i]]; 
+                        if (val && !isNaN(parseFloat(val))) { 
+                            lastPct = val; 
+                            break; 
+                        } 
+                    } 
+                    if (lastPct) student.attendancePct = parseFloat(lastPct).toFixed(1); 
+                }); 
+            } 
+ 
+            monitoring.forEach(row => { 
+                const name = getVal(row, ["pupils on red or green monitoring forms", "pupil name", "name"]); 
+                if(!name) return; 
+                let student = studentData[name] || findStudentFuzzy(name); 
+                if(!student) student = initStudent(name); 
+                const rawDate = getVal(row, ["column 3", "bulletin date", "date", "column 4"]); 
+                const monType = getVal(row, ["column 2", "form type", "type", "column 1"]); 
+                const year = getVal(row, ["column 1", "year group", "year"]); 
+                if(year && student.year === "??") student.year = year; 
+                let typeDisplay = "Monitoring"; 
+                if (monType) typeDisplay = monType; 
+                student.monitoring.push({ date: parseDate(rawDate) || new Date(), type: typeDisplay, raw: monType }); 
+            }); 
+ 
+            document.getElementById('stat-total-incidents').innerText = totalIncidents.toLocaleString(); 
+            document.getElementById('stat-total-oncalls').innerText = totalOnCalls.toLocaleString(); 
+            const sortedYears = Object.entries(yearCounts).sort((a,b)=>b[1]-a[1]); 
+            if(sortedYears.length > 0) { 
+                document.getElementById('stat-top-year').innerText = "Year " + sortedYears[0][0]; 
+                document.getElementById('stat-top-year-count').innerText = sortedYears[0][1] + " incidents"; 
+                document.getElementById('stat-year-bar').style.width = "100%";  
+            } 
+            const years = Array.from(yearsSet).sort(); 
+            els.yearFilter.innerHTML = `<option value="All">All Years</option>` + years.map(y => `<option value="${y}">Year ${y}</option>`).join(''); 
+            renderHeatmap(); 
+            applyFilters(); 
+        } 
+ 
+        function findStudentFuzzy(name) { 
+            if(!name) return null; 
+            name = name.trim(); 
+            if(studentData[name]) return studentData[name]; 
+            const parts = name.replace(/,/g,'').split(' '); 
+            if(parts.length < 2) return null; 
+            const rev = `${parts[parts.length-1]} ${parts[0]}`; 
+            if(studentData[rev]) return studentData[rev]; 
+            const found = Object.keys(studentData).find(k => k.toLowerCase() === name.toLowerCase()); 
+            if(found) return studentData[found]; 
+            return null; 
+        } 
+ 
+        // --- REPORTING LOGIC --- 
+        function getStudentStatsForActions() { 
+            const recentSet = new Set(recentActiveDates); 
+            return Object.values(studentData).map(s => { 
+                const recentIncidents = s.incidents.filter(i => recentSet.has(i.date.setHours(0,0,0,0))); 
+                if (recentIncidents.length === 0) return null; 
+                 
+                const typeCounts = {}; 
+                let highLevelCount = 0; 
+                recentIncidents.forEach(i => { 
+                    typeCounts[i.type] = (typeCounts[i.type] || 0) + 1; 
+                    const tLower = i.type.toLowerCase(); 
+                    if (tLower.includes('on call') || tLower.includes('remove') || tLower.includes('red card')) highLevelCount++; 
+                }); 
+                 
+                let topIssue; 
+                if (highLevelCount > 0) { 
+                     topIssue = Object.entries(typeCounts).filter(([k,v]) => { 
+                         const kl = k.toLowerCase(); 
+                         return kl.includes('on call') || kl.includes('remove') || kl.includes('red card'); 
+                     }).sort((a,b)=>b[1]-a[1])[0][0]; 
+                } else { 
+                     topIssue = Object.entries(typeCounts).sort((a,b)=>b[1]-a[1])[0][0]; 
+                } 
+                 
+                return { ...s, recentCount: recentIncidents.length, topIssue, issueCat: topIssue }; 
+            }).filter(s => s !== null).sort((a,b) => b.recentCount - a.recentCount); 
+        } 
+ 
+        function generateStickerSheet() { 
+            if (!window.jspdf) { alert("PDF library not loaded."); return; } 
+            const { jsPDF } = window.jspdf; 
+            const doc = new jsPDF(); 
+            const studentStats = getStudentStatsForActions(); 
+            const stickersToPrint = studentStats.slice(0, 14); // Limit to top 14 for 1 page demo 
+ 
+            if (stickersToPrint.length === 0) { alert("No students meet the criteria."); return; } 
+ 
+            const startX = 10; const startY = 15; const cardWidth = 90; const cardHeight = 38; const gapX = 5; const gapY = 2; 
+            let x = startX; let y = startY; let col = 0; let row = 0; 
+ 
+            doc.setFontSize(10); 
+            stickersToPrint.forEach((s, index) => { 
+                if (index > 0 && index % 14 === 0) { doc.addPage(); col = 0; row = 0; x = startX; y = startY; } 
+                x = startX + (col * (cardWidth + gapX)); 
+                y = startY + (row * (cardHeight + gapY)); 
+                doc.setDrawColor(220); doc.rect(x, y, cardWidth, cardHeight); 
+                doc.setTextColor(0); doc.setFont(undefined, 'bold'); doc.setFontSize(11); 
+                doc.text(`${s.name} (Yr ${s.year})`, x + 2, y + 6); 
+                let currentY = y + 11; 
+                if (s.isSEN) { 
+                    doc.setFontSize(8); doc.setTextColor(100);  
+                    doc.text(`SEN: ${s.senStatus || 'Yes'} - ${s.senType || ''}`, x + 2, currentY); 
+                    currentY += 5; 
+                } 
+                doc.setFont(undefined, 'bold'); doc.setTextColor(6, 78, 59); doc.setFontSize(9); 
+                doc.text("Target 1 (Behaviour):", x + 2, currentY); 
+                doc.setFont(undefined, 'normal'); doc.setTextColor(0); 
+                doc.text("Improve conduct", x + 35, currentY);  
+                currentY += 6; 
+                doc.setFont(undefined, 'bold'); doc.setTextColor(217, 119, 6);  
+                doc.text("Target 2 (Effort):", x + 2, currentY); 
+                doc.setFont(undefined, 'normal'); doc.setTextColor(0); 
+                doc.text("Complete all work", x + 35, currentY); 
+                col++; if (col >= 2) { col = 0; row++; } 
+            }); 
+            doc.save(`Stickers.pdf`); 
+        } 
+ 
+        // --- UI FUNCTIONS --- 
+        function renderHeatmap() { 
+            const grid = document.getElementById('heatmap-grid'); 
+            grid.innerHTML = `<div></div>` + ["Mon", "Tue", "Wed", "Thu", "Fri"].map(d=>`<div class="text-xs font-bold text-center text-slate-400 uppercase">${d}</div>`).join(''); 
+            document.getElementById('action-plan-section').classList.remove('hidden'); 
+            for(let p=1; p<=5; p++) { 
+                grid.innerHTML += `<div class="text-xs font-bold text-center text-slate-400 py-3 flex items-center justify-center bg-slate-50 rounded">P${p}</div>`; 
+                for(let d=1; d<=5; d++) { 
+                    const count = heatmapData[p][d] || 0; 
+                    let cls = "bg-slate-50 text-slate-300"; 
+                    if(count > 0) cls = "bg-emerald-100 text-emerald-800 border border-emerald-200"; 
+                    if(count > 5) cls = "bg-emerald-500 text-white font-bold shadow-md"; 
+                    if(count > 10) cls = "bg-red-600 text-white font-black shadow-lg"; 
+                    grid.innerHTML += `<div class="${cls} rounded flex flex-col items-center justify-center text-sm cursor-pointer transition hover:scale-105 h-12" onclick="showHeatmapDetails(${p},${d})"><span>${count || '-'}</span></div>`; 
+                } 
+            } 
+        } 
+ 
+        function applyFilters() { 
+            const term = els.searchBox.value.toLowerCase(); 
+            const yearVal = els.yearFilter.value; 
+            const rows = Object.values(studentData).filter(s => { 
+                const matchesSearch = s.name.toLowerCase().includes(term) || s.reg.toLowerCase().includes(term); 
+                const matchesYear = yearVal === "All" || s.year == yearVal; 
+                return matchesSearch && matchesYear; 
+            }); 
+            renderTable(rows); 
+        } 
+ 
+        function resetFilters() { els.searchBox.value = ""; els.yearFilter.value = "All"; applyFilters(); } 
+        function sortStudents(key) { 
+            if(currentSort.key === key) { currentSort.dir = currentSort.dir === 'asc' ? 'desc' : 'asc'; }  
+            else { currentSort.key = key; currentSort.dir = 'desc'; } 
+            applyFilters();  
+        } 
+ 
+        function renderTable(rows) { 
+            rows.sort((a,b) => { 
+                let valA, valB; 
+                if(currentSort.key === 'name') { valA = a.name; valB = b.name; } 
+                else if(currentSort.key === 'count') { valA = a.count; valB = b.count; } 
+                else { valA = a.onCallCount; valB = b.onCallCount; } 
+                if (valA < valB) return currentSort.dir === 'asc' ? -1 : 1; 
+                if (valA > valB) return currentSort.dir === 'asc' ? 1 : -1; 
+                return 0; 
+            }); 
+            els.studentCount.innerText = `${rows.length} Students`; 
+            els.tableBody.innerHTML = ""; 
+            if(rows.length === 0) { els.tableBody.innerHTML = `<tr><td colspan="4" class="p-4 text-center text-slate-400 text-xs">No students found matching filters.</td></tr>`; return; } 
+            rows.slice(0, 100).forEach(s => { 
+                const tr = document.createElement('tr'); 
+                tr.className = "hover:bg-emerald-50 border-b border-slate-100 cursor-pointer text-xs group transition"; 
+                tr.onclick = () => loadProfile(s); 
+                tr.innerHTML = `<td class="px-4 py-3 font-semibold text-slate-700 group-hover:text-emerald-800">${s.name} ${s.isSEN ? '<span class="w-2 h-2 rounded-full bg-green-500 inline-block ml-1" title="SEN"></span>' : ''}</td><td class="px-2 py-3 font-bold text-slate-600">${s.count}</td><td class="px-2 py-3 text-center">${s.onCallCount > 0 ? `<span class="bg-red-100 text-red-700 px-2 py-0.5 rounded font-bold">${s.onCallCount}</span>` : '<span class="text-slate-300">-</span>'}</td><td class="px-4 py-3 text-right text-slate-500">${s.year}<span class="text-slate-300 mx-1">/</span>${s.reg}</td>`; 
+                els.tableBody.appendChild(tr); 
+            }); 
+        } 
+ 
+        function loadProfile(s) { 
+            try { 
+                currentProfileId = s.name;  
+                document.getElementById('student-focus').classList.remove('hidden'); 
+                document.getElementById('focus-name').innerText = s.name; 
+                document.getElementById('focus-reg').innerText = `${s.year} / ${s.reg}`; 
+                document.getElementById('focus-count').innerText = s.count; 
+                document.getElementById('focus-ra').innerText = s.ra || '--'; 
+                document.getElementById('focus-pa').innerText = s.pa || '--'; 
+                const badgeCont = document.getElementById('focus-badges'); 
+                badgeCont.innerHTML = ""; 
+                if (s.isSEN) { 
+                    let senText = `SEN: ${s.senStatus || 'Yes'}`; 
+                    if (s.senType) senText += ` - ${s.senType}`; 
+                    badgeCont.innerHTML += `<span class="tag tag-sen" title="${s.senType || ''}">${senText}</span>`; 
+                } 
+                if (s.isPP) badgeCont.innerHTML += `<span class="tag tag-pp">Pupil Premium</span>`; 
+                const attEl = document.getElementById('focus-att-pct'); 
+                const attBar = document.getElementById('focus-att-bar'); 
+                if (s.attendancePct) { 
+                    attEl.innerText = s.attendancePct + "%"; 
+                    attBar.style.width = s.attendancePct + "%"; 
+                    if(s.attendancePct < 90) { attEl.className = "font-bold text-lg text-red-600"; attBar.className = "h-full bg-red-500"; } 
+                    else { attEl.className = "font-bold text-lg text-emerald-600"; attBar.className = "h-full bg-emerald-500"; } 
+                } else { attEl.innerText = "--"; attBar.style.width = "0%"; } 
+                 
+                const greenCount = s.monitoring.filter(m => m.type.toLowerCase().includes('green')).length; 
+                const redCount = s.monitoring.filter(m => m.type.toLowerCase().includes('red')).length; 
+                document.getElementById('focus-mon-green').innerText = greenCount; 
+                document.getElementById('focus-mon-red').innerText = redCount; 
+ 
+                // Diagnosis Logic (Simple) 
+                const typeEntries = Object.entries(s.types).sort((a,b)=>b[1]-a[1]); 
+                let diag = "General"; 
+                let strats = ["Use visual timetable", "Positive reinforcement"]; 
+                if(typeEntries.length > 0) { 
+                    if(typeEntries[0][0].match(/disrupt/i)) { diag = "Disruption"; strats = ["Seating change", "Non-verbal cues"]; } 
+                    else if(typeEntries[0][0].match(/defian/i)) { diag = "Defiance"; strats = ["Take up time", "Private reprimand"]; } 
+                } 
+                const diagEl = document.getElementById('focus-diagnosis'); 
+                diagEl.innerText = diag; 
+                diagEl.className = `px-3 py-1 rounded text-xs font-bold uppercase ${diag === 'Defiance' ? 'diag-def' : 'diag-gen'}`; 
+                 
+                document.getElementById('strategy-list').innerHTML = strats.map(st => `<li class="flex items-start gap-2 text-slate-600"><i class="fas fa-check-circle text-emerald-500 mt-1"></i> ${st}</li>`).join(''); 
+                 
+                const cList = document.getElementById('comment-analysis'); 
+                const validNotes = s.incidents.filter(i => i.notes && i.notes.length > 3).slice(0, 5); 
+                cList.innerHTML = validNotes.map(i => `<div class="mb-2 border-b border-slate-100 pb-2 last:border-0"><span class="text-[10px] text-emerald-600 font-bold block">${i.date ? i.date.toLocaleDateString() : ''} - ${i.type}</span>"${i.notes}"</div>`).join(''); 
+ 
+                renderChart(s.incidents); 
+                document.getElementById('student-focus').scrollIntoView({ behavior: 'smooth' }); 
+            } catch (err) { console.error(err); alert("Error loading profile"); } 
+        } 
+ 
+        function renderChart(incidents) { 
+            try { 
+                const ctx = document.getElementById('student-chart').getContext('2d'); 
+                if(activeChart) activeChart.destroy(); 
+                const months = {}; 
+                incidents.forEach(i => { if(i.date) { const m = i.date.toLocaleString('default', { month: 'short' }); months[m] = (months[m]||0)+1; } }); 
+                activeChart = new Chart(ctx, { type: 'bar', data: { labels: Object.keys(months), datasets: [{ label: 'Incidents', data: Object.values(months), backgroundColor: '#059669', borderRadius: 4 }] }, options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true }, x: { grid: { display: false } } } } }); 
+            } catch(e) {} 
+        } 
+ 
+        function showMonitoringHistory(filterType) { 
+            const s = studentData[currentProfileId]; if(!s) return; 
+            const modal = document.getElementById('detail-modal'); 
+            document.getElementById('modal-title').innerText = `${filterType} Monitoring History`; 
+            const filtered = s.monitoring.filter(m => m.type.toLowerCase().includes(filterType.toLowerCase())).sort((a,b)=>b.date-a.date); 
+            document.getElementById('modal-content-container').innerHTML = ` 
+                <table class="w-full text-sm text-left"><thead class="bg-slate-50 uppercase text-xs"><tr><th class="p-3">Date</th><th class="p-3">Type</th></tr></thead> 
+                <tbody class="divide-y divide-slate-100">${filtered.map(m => `<tr><td class="p-3">${m.date.toLocaleDateString()}</td><td class="p-3">${m.raw}</td></tr>`).join('')}</tbody></table>`; 
+            modal.classList.remove('hidden'); 
+        } 
+ 
+        function showHeatmapDetails(p, d) { 
+            const data = heatmapDrilldown[p][d]; if(!data) return; 
+            const modal = document.getElementById('detail-modal'); 
+            document.getElementById('modal-title').innerText = `Period ${p} Hotspot`; 
+            const sorted = Object.entries(data).sort((a,b)=>b[1]-a[1]); 
+            document.getElementById('modal-content-container').innerHTML = ` 
+                <table class="w-full text-sm text-left"><thead class="bg-slate-50 uppercase text-xs"><tr><th class="p-3">Student</th><th class="p-3 text-right">Count</th></tr></thead> 
+                <tbody class="divide-y divide-slate-100">${sorted.map(([k,v]) => `<tr><td class="p-3">${k}</td><td class="p-3 text-right font-bold text-red-600">${v}</td></tr>`).join('')}</tbody></table>`; 
+            modal.classList.remove('hidden'); 
+        } 
+
+        // --- NEW REPORTING FUNCTIONS ---
+        
+        function showTotalIncidentsDetails() {
+            const modal = document.getElementById('detail-modal');
+            document.getElementById('modal-title').innerText = "Incident Breakdown (Click bar for details)";
+            
+            // Calculate type counts
+            const typeCounts = {};
+            Object.values(studentData).forEach(s => {
+                Object.entries(s.types).forEach(([t, c]) => {
+                    typeCounts[t] = (typeCounts[t] || 0) + c;
+                });
+            });
+            const sortedTypes = Object.entries(typeCounts).sort((a,b)=>b[1]-a[1]);
+            
+            const canvasId = 'modal-chart-canvas';
+            document.getElementById('modal-content-container').innerHTML = `
+                <div class="p-4 h-64"><canvas id="${canvasId}"></canvas></div>
+                <div id="drilldown-container" class="p-4 hidden"></div>
+            `;
+            
+            const ctx = document.getElementById(canvasId).getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: sortedTypes.map(x => x[0]),
+                    datasets: [{
+                        label: 'Incidents',
+                        data: sortedTypes.map(x => x[1]),
+                        backgroundColor: '#059669',
+                        borderRadius: 4
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    onClick: (e, els) => {
+                        if (els.length > 0) {
+                            const index = els[0].index;
+                            const type = sortedTypes[index][0];
+                            showIncidentTypeDrilldown(type);
+                        }
+                    }
+                }
+            });
+            
+            modal.classList.remove('hidden');
+        }
+        
+        function showIncidentTypeDrilldown(type) {
+            const container = document.getElementById('drilldown-container');
+            container.classList.remove('hidden');
+            
+            // Top 5 Students
+            const studentCounts = [];
+            const staffCounts = {};
+            
+            Object.values(studentData).forEach(s => {
+                let count = 0;
+                s.incidents.forEach(i => {
+                    if (i.type === type) {
+                        count++;
+                        staffCounts[i.staff] = (staffCounts[i.staff] || 0) + 1;
+                    }
+                });
+                if (count > 0) studentCounts.push({name: s.name, year: s.year, count: count});
+            });
+            
+            studentCounts.sort((a,b)=>b.count - a.count);
+            const topStudents = studentCounts.slice(0,5);
+            
+            const sortedStaff = Object.entries(staffCounts).sort((a,b)=>b[1]-a[1]).slice(0,5);
+            
+            container.innerHTML = `
+                <h4 class="font-bold text-emerald-900 mb-2 border-b pb-1">Top 5 Students for "${type}"</h4>
+                <table class="w-full text-xs text-left mb-4">
+                    <thead class="bg-slate-100"><tr><th class="p-2">Name</th><th class="p-2">Yr</th><th class="p-2 text-right">Count</th></tr></thead>
+                    <tbody class="divide-y">${topStudents.map(s => `<tr><td class="p-2">${s.name}</td><td class="p-2">${s.year}</td><td class="p-2 text-right font-bold">${s.count}</td></tr>`).join('')}</tbody>
+                </table>
+                
+                <h4 class="font-bold text-emerald-900 mb-2 border-b pb-1">Top Reporters for "${type}"</h4>
+                <table class="w-full text-xs text-left">
+                    <thead class="bg-slate-100"><tr><th class="p-2">Staff</th><th class="p-2 text-right">Count</th></tr></thead>
+                    <tbody class="divide-y">${sortedStaff.map(s => `<tr><td class="p-2">${s[0]}</td><td class="p-2 text-right font-bold">${s[1]}</td></tr>`).join('')}</tbody>
+                </table>
+            `;
+            
+            container.scrollIntoView({behavior: 'smooth'});
+        }
+        
+        function showTotalOnCallDetails() {
+            const modal = document.getElementById('detail-modal');
+            document.getElementById('modal-title').innerText = "Top On-Call Students";
+            
+            const students = Object.values(studentData)
+                .filter(s => s.onCallCount > 0)
+                .sort((a,b) => b.onCallCount - a.onCallCount);
+                
+            document.getElementById('modal-content-container').innerHTML = `
+                <table class="w-full text-sm text-left">
+                    <thead class="bg-slate-50 uppercase text-xs">
+                        <tr><th class="p-3">Rank</th><th class="p-3">Student</th><th class="p-3">Year</th><th class="p-3 text-right">On Calls</th></tr>
+                    </thead>
+                    <tbody class="divide-y divide-slate-100">
+                        ${students.map((s, i) => `
+                            <tr>
+                                <td class="p-3 text-slate-400 font-mono">${i+1}</td>
+                                <td class="p-3 font-bold text-slate-700">${s.name}</td>
+                                <td class="p-3">${s.year}</td>
+                                <td class="p-3 text-right font-bold text-red-600">${s.onCallCount}</td>
+                            </tr>`).join('')}
+                    </tbody>
+                </table>
+            `;
+            modal.classList.remove('hidden');
+        }
+        
+        function showYearGroupDetails() {
+            const topYearEl = document.getElementById('stat-top-year');
+            const yearText = topYearEl.innerText;
+            if (yearText === '--') return;
+            const year = yearText.replace('Year ', '');
+            
+            const modal = document.getElementById('detail-modal');
+            document.getElementById('modal-title').innerText = `Analysis: Year ${year}`;
+            
+            // Filter students by year
+            const yearStudents = Object.values(studentData).filter(s => s.year == year);
+            
+            // 1. Main Reasons
+            const typeCounts = {};
+            yearStudents.forEach(s => {
+                Object.entries(s.types).forEach(([t, c]) => {
+                    typeCounts[t] = (typeCounts[t] || 0) + c;
+                });
+            });
+            const topReasons = Object.entries(typeCounts).sort((a,b)=>b[1]-a[1]).slice(0, 3);
+            
+            // 2. Top 10 Pupils & Strategies
+            const topPupils = yearStudents.sort((a,b)=>b.count - a.count).slice(0, 10);
+            
+            document.getElementById('modal-content-container').innerHTML = `
+                <div class="p-4 space-y-6">
+                    <div class="bg-orange-50 p-4 rounded-lg border border-orange-200">
+                        <h4 class="font-bold text-orange-800 mb-2 uppercase text-xs">Main Reasons for Negatives</h4>
+                        <div class="flex flex-wrap gap-2">
+                            ${topReasons.map(([t, c]) => `<span class="bg-white px-3 py-1 rounded shadow-sm text-sm font-bold text-orange-900 border border-orange-100">${t}: ${c}</span>`).join('')}
+                        </div>
+                    </div>
+                    
+                    <div>
+                        <h4 class="font-bold text-emerald-900 mb-2 uppercase text-xs">Top 10 Pupils & Intervention Strategies</h4>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-xs text-left">
+                                <thead class="bg-slate-100">
+                                    <tr>
+                                        <th class="p-2">Pupil</th>
+                                        <th class="p-2 text-center">Evts</th>
+                                        <th class="p-2">Main Issue</th>
+                                        <th class="p-2">Suggested Strategy</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y">
+                                    ${topPupils.map(s => {
+                                        // Find main issue
+                                        const mainIssue = Object.entries(s.types).sort((a,b)=>b[1]-a[1])[0]?.[0] || "General";
+                                        const strat = getStrategyForType(mainIssue);
+                                        return `
+                                        <tr>
+                                            <td class="p-2 font-bold">${s.name}</td>
+                                            <td class="p-2 text-center">${s.count}</td>
+                                            <td class="p-2 text-slate-500">${mainIssue}</td>
+                                            <td class="p-2">
+                                                <div class="font-bold text-emerald-700">${strat.strategy}</div>
+                                                <div class="italic text-slate-500 mt-1">"${strat.script}"</div>
+                                            </td>
+                                        </tr>`;
+                                    }).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            modal.classList.remove('hidden');
+        }
+    </script> 
+</body> 
+</html>

@@ -1,0 +1,48 @@
+name: Dashboard Backend CI/CD
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  test-and-validate:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+        
+    - name: Install Dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install pandas sqlalchemy pytest
+        
+    - name: Run Logic Tests
+      run: |
+        export PYTHONPATH=$PYTHONPATH:$(pwd)/src
+        pytest tests/test_equity.py
+        echo "Equity Logic Tests Passed!"
+        
+    - name: Validate SQL Schema
+      run: |
+        # This step would validate the SQL schema against a linter or test DB
+        echo "Validating SQL Schema..."
+
+  deploy-spec-docs:
+    needs: test-and-validate
+    runs-on: ubuntu-latest
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Deploy Documentation
+      run: |
+        echo "Deploying Technical Specification to Internal Wiki..."
+        # Example: Upload technical_specification.md to a documentation site
